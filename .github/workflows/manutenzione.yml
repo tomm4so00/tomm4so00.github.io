@@ -1,0 +1,72 @@
+name: Manutenzione
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+    # 11:45 in Italia (ora legale e solare): l'annuncio di Zero, lo scassinatore
+    - cron: '45 9,10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    if: github.repository == 'tomm4so00/tomm4so00.github.io' && github.ref == 'refs/heads/main' && vars.MARKET_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: shared-stock-market
+      cancel-in-progress: false
+    steps:
+      - name: Codice del gioco (repo privata, sola lettura)
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: tomm4so00/casadolcecasa
+          ref: main
+          ssh-key: ${{ secrets.CODICE_DEPLOY_KEY }}
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --prefix server
+      - run: npm run build --prefix server
+      - name: Manutenzione del gioco vero
+        env:
+          FIREBASE_MARKET_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_MARKET_SERVICE_ACCOUNT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FIREBASE_PROJECT_ID: casadolcecasa-6d92a
+          FIREBASE_DATABASE_URL: https://casadolcecasa-6d92a-default-rtdb.firebaseio.com
+        run: node server/lib/server/src/index.js
+
+  # Il gioco di prova, con il codice del ramo "prova" e la chiave del progetto di prova.
+  update-prova:
+    if: github.repository == 'tomm4so00/tomm4so00.github.io' && github.ref == 'refs/heads/main' && vars.PROVA_MARKET_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: shared-stock-market-prova
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: tomm4so00/casadolcecasa
+          ref: prova
+          ssh-key: ${{ secrets.CODICE_DEPLOY_KEY }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --prefix server
+      - run: npm run build --prefix server
+      - name: Manutenzione del gioco di prova
+        env:
+          FIREBASE_MARKET_SERVICE_ACCOUNT: ${{ secrets.PROVA_FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: casadolcecasa-prova
+          FIREBASE_DATABASE_URL: https://casadolcecasa-prova-default-rtdb.firebaseio.com
+          GAME_URL: https://casadolcecasa-prova.web.app/
+        run: node server/lib/server/src/index.js
