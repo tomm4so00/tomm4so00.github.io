@@ -1,0 +1,89 @@
+name: Giocatori simulati
+
+# I giocatori simulati del gioco di prova (docs/autoplay-nuovo.md nella repo del gioco): sei
+# personaggi che vivono come persone, guidati dal "cervello" (scripts/sim-vivo.mjs). Due sessioni
+# al giorno, alle 17 e alle 21 ora italiana (quella delle 21 cade sulla festa del cortile);
+# non entrano tutti ogni volta, entrano a minuti diversi e restano tra 15 e 40 minuti.
+# Il profilo del browser di ognuno resta nella cache: ritrova sempre lo stesso personaggio.
+
+on:
+  schedule:
+    # 17 e 21 ora italiana (ora solare: UTC+1)
+    - cron: '0 16,20 * * *'
+  workflow_dispatch:
+    inputs:
+      nomi:
+        description: 'Chi entra (separati da virgole)'
+        default: 'giulia,marco,sara,luca,elena,davide'
+      minuti:
+        description: 'Minuti di gioco (vuoto = a caso tra 15 e 40)'
+        default: ''
+      tutti:
+        description: 'Entrano tutti, senza estrazione né attesa'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  sim:
+    if: github.repository == 'tomm4so00/tomm4so00.github.io' && vars.SIMULATI_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        nome: [giulia, marco, sara, luca, elena, davide]
+    steps:
+      - name: Entra in questa sessione?
+        id: turno
+        env:
+          SCELTI: ${{ github.event.inputs.nomi || 'giulia,marco,sara,luca,elena,davide' }}
+          TUTTI: ${{ github.event.inputs.tutti || 'false' }}
+        run: |
+          gioca=no
+          if [[ ",$SCELTI," == *",${{ matrix.nome }},"* ]]; then
+            if [ "$TUTTI" = true ] || [ $((RANDOM % 10)) -lt 7 ]; then gioca=si; fi
+          fi
+          echo "gioca=$gioca" >> "$GITHUB_OUTPUT"
+          echo "${{ matrix.nome }}: $gioca"
+      - name: Codice del gioco (ramo prova, sola lettura)
+        if: steps.turno.outputs.gioca == 'si'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: tomm4so00/casadolcecasa
+          ref: prova
+          ssh-key: ${{ secrets.CODICE_DEPLOY_KEY }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: steps.turno.outputs.gioca == 'si'
+        with:
+          node-version: '24'
+          cache: npm
+      - if: steps.turno.outputs.gioca == 'si'
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Il profilo del browser di ${{ matrix.nome }}
+        if: steps.turno.outputs.gioca == 'si'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.casadolcecasa-sim/${{ matrix.nome }}
+          key: sim-${{ matrix.nome }}-${{ github.run_id }}
+          restore-keys: sim-${{ matrix.nome }}-
+      - name: Vive nel gioco di prova
+        if: steps.turno.outputs.gioca == 'si'
+        env:
+          MINUTI: ${{ github.event.inputs.minuti }}
+          TUTTI: ${{ github.event.inputs.tutti || 'false' }}
+        run: |
+          # come le persone: non entrano tutti nello stesso minuto
+          if [ "$TUTTI" != true ]; then sleep $((RANDOM % 600)); fi
+          minuti=${MINUTI:-$((15 + RANDOM % 26))}
+          mkdir -p foto
+          node scripts/sim-vivo.mjs ${{ matrix.nome }} foto "$minuti"
+      - name: Le foto della sessione
+        if: always() && steps.turno.outputs.gioca == 'si'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: foto-${{ matrix.nome }}
+          path: foto
+          retention-days: 3
