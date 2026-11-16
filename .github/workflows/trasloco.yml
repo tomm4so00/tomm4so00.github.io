@@ -1,7 +1,8 @@
 name: Pagina del trasloco
 
 # Chi apre ancora tomm4so00.github.io/casadolcecasa/ trova la pagina che lo porta su
-# casadolcecasa.web.app con il suo accesso. La si ripubblica a mano quando cambia.
+# casadolcecasa.web.app con il suo accesso; tomm4so00.github.io è la vetrina del gioco (la pagina
+# «Cos'è» del sito). La si ripubblica a mano quando cambia.
 on:
   workflow_dispatch:
 
@@ -40,7 +41,11 @@ jobs:
           cp dist/trasloco.html dist/index.html
           mkdir -p site
           mv dist site/casadolcecasa
-          printf '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=https://casadolcecasa.web.app/"><a href="https://casadolcecasa.web.app/">Casa dolce casa</a>\n' > site/index.html
+          # la vetrina: la presentazione del gioco (public/cos-e.html), con il suo indirizzo e i
+          # link che dicono al gioco che si arriva da qui (?da=github)
+          sed -e 's|https://casadolcecasa.web.app/cos-e.html" />|https://tomm4so00.github.io/" />|' \
+              -e 's|href="https://casadolcecasa.web.app/"|href="https://casadolcecasa.web.app/?da=github"|g' \
+              public/cos-e.html > site/index.html
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: site
