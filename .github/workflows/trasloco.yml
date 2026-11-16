@@ -48,6 +48,9 @@ jobs:
               public/cos-e.html > site/index.html
           # la verifica di Google Search Console (lo stesso file del sito del gioco)
           cp public/google*.html site/
+          # per Google: la vetrina è l'unica pagina da leggere (il trasloco serve solo a chi lo apre)
+          printf 'User-agent: *\nAllow: /\nDisallow: /casadolcecasa/\n\nSitemap: https://tomm4so00.github.io/sitemap.xml\n' > site/robots.txt
+          printf '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://tomm4so00.github.io/</loc><changefreq>monthly</changefreq></url>\n</urlset>\n' > site/sitemap.xml
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: site
