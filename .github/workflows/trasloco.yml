@@ -46,6 +46,8 @@ jobs:
           sed -e 's|https://casadolcecasa.web.app/cos-e.html" />|https://tomm4so00.github.io/" />|' \
               -e 's|href="https://casadolcecasa.web.app/"|href="https://casadolcecasa.web.app/?da=github"|g' \
               public/cos-e.html > site/index.html
+          # la verifica di Google Search Console (lo stesso file del sito del gioco)
+          cp public/google*.html site/
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: site
